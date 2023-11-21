@@ -1,0 +1,74 @@
+# Setup git-lfs
+[attr]uselfs filter=lfs diff=lfs merge=lfs
+# 3D models
+*.3dm uselfs -text
+*.3ds uselfs -text
+*.blend uselfs -text
+*.c4d uselfs -text
+*.collada uselfs -text
+*.dae uselfs -text
+*.dxf uselfs -text
+*.fbx uselfs -text
+*.jas uselfs -text
+*.lws uselfs -text
+*.lxo uselfs -text
+*.ma uselfs -text
+*.max uselfs -text
+*.mb uselfs -text
+*.obj uselfs -text
+*.ply uselfs -text
+*.skp uselfs -text
+*.stl uselfs -text
+*.ztl uselfs -text
+# Audio
+*.aif uselfs -text
+*.aiff uselfs -text
+*.it uselfs -text
+*.mod uselfs -text
+*.mp3 uselfs -text
+*.ogg uselfs -text
+*.s3m uselfs -text
+*.wav uselfs -text
+*.xm uselfs -text
+*.bank uselfs -text
+# Fonts
+*.otf uselfs -text
+*.ttf uselfs -text
+# Images
+*.bmp uselfs -text
+*.exr uselfs -text
+*.gif uselfs -text
+*.hdr uselfs -text
+*.iff uselfs -text
+*.jpeg uselfs -text
+*.jpg uselfs -text
+*.pict uselfs -text
+*.png uselfs -text
+*.psd uselfs -text
+*.tga uselfs -text
+*.tif uselfs -text
+*.tiff uselfs -text
+*.pdf uselfs -text
+# Packages
+*.dll uselfs -text
+*.so uselfs -text
+*.jar uselfs -text
+*.bc uselfs -text
+*.a uselfs -text
+*.bundle uselfs -text
+*.pdb uselfs -text
+*.zip uselfs -text
+*.tar uselfs -text
+*.rar uselfs -text
+*.unitypackage uselfs -text
+# Unity
+*.unity uselfs -text
+*.asset uselfs -text
+*.anim uselfs -text
+*.playable uselfs -text
+# *.prefab uselfs -text
+# Collapse diff
+*.atlas.txt -diff
+*.mat -diff
+*.controller -diff
+*.meta -diff
