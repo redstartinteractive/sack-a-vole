@@ -1,4 +1,5 @@
 using Niantic.Lightship.AR.NavigationMesh;
+using PrimeTween;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -19,14 +20,16 @@ public class Vole : NetworkBehaviour
 
     private float nextMoveTime;
     private float returnToHoleTime;
+    private bool wasSacked;
+    private bool isDespawning;
     private Transform sackTargetTransform;
     private Vector3 startingHolePosition;
-    private bool wasSacked;
     private Animator animator;
     private Vector2 lastPos;
 
     private static readonly int IsRunning = Animator.StringToHash("IsRunning");
     private static readonly int Sack = Animator.StringToHash("IsSacked");
+    private static readonly int Despawn = Animator.StringToHash("Despawn");
     private const float k_SackTargetOffsetY = -0.25f;
 
     private void Awake()
@@ -85,9 +88,11 @@ public class Vole : NetworkBehaviour
             Vector3 targetPos = sackTargetTransform.position + Vector3.down * k_SackTargetOffsetY;
             float clampedTime = Mathf.Clamp01(lerpTime / sackAnimationTime);
             transform.position = Vector3.Lerp(transform.position, targetPos, clampedTime);
-            if(clampedTime >= 1)
+            if(clampedTime >= 1 || isDespawning)
             {
-                RemoveFromGame();
+                isDespawning = true;
+                GameManager.Instance.RoundManager.RemoveVole(this);
+                NetworkObject.Despawn();
             }
 
             return;
@@ -95,10 +100,10 @@ public class Vole : NetworkBehaviour
 
         if(isGoingHome)
         {
-            if(navMeshAgent.State == LightshipNavMeshAgent.AgentNavigationState.Idle)
+            if(navMeshAgent.State == LightshipNavMeshAgent.AgentNavigationState.Idle && !isDespawning)
             {
                 // Arrived at home
-                RemoveFromGame();
+                PlayDespawnAnimation();
             }
 
             return;
@@ -133,7 +138,7 @@ public class Vole : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     public void SackServerRpc(ulong clientId)
     {
-        if(wasSacked) return;
+        if(wasSacked || isDespawning) return;
 
         wasSacked = true;
         navMeshAgent.StopMoving();
@@ -158,9 +163,14 @@ public class Vole : NetworkBehaviour
         audioSource.Play();
     }
 
-    private void RemoveFromGame()
+    private void PlayDespawnAnimation()
     {
+        isDespawning = true;
         GameManager.Instance.RoundManager.RemoveVole(this);
-        NetworkObject.Despawn();
+        animator.SetTrigger(Despawn);
+        Tween.Delay(1f).OnComplete(() =>
+        {
+            NetworkObject.Despawn();
+        });
     }
 }
