@@ -1,8 +1,7 @@
-using System;
 using PrimeTween;
 using UnityEngine;
 
-public class VoleHole: MonoBehaviour
+public class VoleHole : MonoBehaviour
 {
     private ParticleSystem particles;
 
@@ -14,7 +13,6 @@ public class VoleHole: MonoBehaviour
     public void PlaySpawnAnimation(Vector3 position, float startDelay)
     {
         transform.position = position + Vector3.down;
-
         ParticleSystem.MainModule main = particles.main;
         main.startDelay = startDelay;
         particles.Play();

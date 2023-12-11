@@ -1,14 +1,11 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Niantic.Lightship.AR.NavigationMesh;
-using Niantic.Lightship.SharedAR.Colocalization;
 using PrimeTween;
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
-using Random = UnityEngine.Random;
 
 public class RoundManager : NetworkBehaviour
 {
@@ -26,22 +23,21 @@ public class RoundManager : NetworkBehaviour
     [Space]
     [SerializeField] private TextMeshProUGUI timerText;
     [SerializeField] private TextMeshProUGUI countdownText;
-    [SerializeField] private SharedSpaceManager sharedSpaceManager;
     [Header("Audio")]
     [SerializeField] private AudioClip startRaceLowSound;
     [SerializeField] private AudioClip startRaceHighSound;
     [SerializeField] private AudioClip successSound;
     [SerializeField] private AudioClip failureSound;
+    private readonly Dictionary<ulong, int> playerScores = new();
+    private readonly List<VoleHole> spawnedHoles = new();
+    private readonly List<Vole> spawnedVoles = new();
 
     private AudioSource audioSource;
     private bool isRoundActive;
-    private float nextSpawnTime;
-    private float roundStartTime;
 
     private LightshipNavMeshManager navMeshManager;
-    private readonly Dictionary<ulong, int> playerScores = new();
-    private readonly Dictionary<uint, VoleHole> activeSpawnedHoles = new();
-    private readonly List<Vole> activeSpawnedVoles = new();
+    private float nextSpawnTime;
+    private float roundStartTime;
 
     private void Start()
     {
@@ -51,6 +47,27 @@ public class RoundManager : NetworkBehaviour
         timerText.gameObject.SetActive(false);
         countdownText.gameObject.SetActive(false);
         startGameButton.onClick.AddListener(OnClickStartGame);
+    }
+
+    private void Update()
+    {
+        if(!isRoundActive) return;
+
+        int secondsRemaining = Mathf.FloorToInt(roundTime - (Time.time - roundStartTime));
+        timerText.text = secondsRemaining.ToString();
+
+        if(!IsServer) return;
+
+        if(secondsRemaining <= 0)
+        {
+            EndRound();
+            return;
+        }
+
+        if(Time.time < nextSpawnTime) return;
+
+        SpawnVoleServer();
+        nextSpawnTime = Time.time + timeBetweenSpawns;
     }
 
     public void ShowNewRoundUI()
@@ -68,7 +85,7 @@ public class RoundManager : NetworkBehaviour
     private void StartGameServerRpc()
     {
         // Setup playing field
-        Vector3 gameOrigin = sharedSpaceManager.SharedArOriginObject.transform.position;
+        Vector3 gameOrigin = GameManager.Instance.SharedSpaceManager.SharedArOriginObject.transform.position;
         for(int i = 0; i < numHolesToSpawn; i++)
         {
             navMeshManager.LightshipNavMesh.FindRandomPosition(gameOrigin, spawnRange,
@@ -86,7 +103,7 @@ public class RoundManager : NetworkBehaviour
     {
         navMeshManager.LightshipNavMesh.FindNearestFreePosition(spawnPosition, out Vector3 positionOnNavMesh);
         VoleHole hole = Instantiate(voleHolePrefab, positionOnNavMesh, Quaternion.identity);
-        activeSpawnedHoles.Add(id, hole);
+        spawnedHoles.Add(hole);
         hole.PlaySpawnAnimation(positionOnNavMesh, id * (3f / numHolesToSpawn));
     }
 
@@ -140,38 +157,17 @@ public class RoundManager : NetworkBehaviour
             .Chain(Tween.Alpha(countdownText, 0, 0.5f));
     }
 
-    private void Update()
-    {
-        if(!isRoundActive) return;
-
-        int secondsRemaining = Mathf.FloorToInt(roundTime - (Time.time - roundStartTime));
-        timerText.text = secondsRemaining.ToString();
-
-        if(!IsServer) return;
-
-        if(secondsRemaining <= 0)
-        {
-            EndRound();
-            return;
-        }
-
-        if(Time.time < nextSpawnTime) return;
-
-        SpawnVoleServer();
-        nextSpawnTime = Time.time + timeBetweenSpawns;
-    }
-
     private void SpawnVoleServer()
     {
-        KeyValuePair<uint, VoleHole> startingHole = activeSpawnedHoles.ElementAt(Random.Range(0, activeSpawnedHoles.Count - 1));
-        Vole spawnedVole = Instantiate(volePrefab, startingHole.Value.transform.position, Quaternion.identity);
+        VoleHole startingHole = spawnedHoles[Random.Range(0, spawnedHoles.Count - 1)];
+        Vole spawnedVole = Instantiate(volePrefab, startingHole.transform.position, Quaternion.identity);
         spawnedVole.NetworkObject.Spawn();
-        activeSpawnedVoles.Add(spawnedVole);
+        spawnedVoles.Add(spawnedVole);
     }
 
     public void RemoveVole(Vole vole)
     {
-        activeSpawnedVoles.Remove(vole);
+        spawnedVoles.Remove(vole);
     }
 
     [ClientRpc]
@@ -183,22 +179,26 @@ public class RoundManager : NetworkBehaviour
 
     private void EndRound()
     {
-        foreach(Vole vole in activeSpawnedVoles)
+        foreach(Vole vole in spawnedVoles)
         {
             vole.NetworkObject.Despawn();
         }
 
-        activeSpawnedVoles.Clear();
+        spawnedVoles.Clear();
         NotifyEndRoundClientRpc();
     }
 
     [ClientRpc]
     private void NotifyEndRoundClientRpc()
     {
-        foreach(KeyValuePair<uint, VoleHole> hole in activeSpawnedHoles) hole.Value.RemoveFromGame(hole.Key * 0.5f);
+        for(int index = 0; index < spawnedHoles.Count; index++)
+        {
+            VoleHole hole = spawnedHoles[index];
+            hole.RemoveFromGame(index * 0.25f);
+        }
 
-        activeSpawnedVoles.Clear();
-        activeSpawnedHoles.Clear();
+        spawnedVoles.Clear();
+        spawnedHoles.Clear();
         isRoundActive = false;
         timerText.gameObject.SetActive(false);
 

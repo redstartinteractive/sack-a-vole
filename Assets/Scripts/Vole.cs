@@ -1,9 +1,6 @@
-using System;
-using UnityEngine;
 using Niantic.Lightship.AR.NavigationMesh;
-using PrimeTween;
 using Unity.Netcode;
-using Random = UnityEngine.Random;
+using UnityEngine;
 
 public class Vole : NetworkBehaviour
 {
@@ -13,19 +10,20 @@ public class Vole : NetworkBehaviour
     [SerializeField] private Vector2 maxLifetimeRange = new(2, 3);
     [SerializeField] private float sackAnimationTime = 1f;
 
+    private AudioSource audioSource;
+    private bool isGoingHome;
+    private float lerpTime;
+
     private LightshipNavMeshAgent navMeshAgent;
     private LightshipNavMeshManager navMeshManager;
 
     private float nextMoveTime;
-    private bool wasSacked;
-    private bool isGoingHome;
-    private Transform sackTargetTransform;
-    private float lerpTime;
     private float returnToHoleTime;
+    private Transform sackTargetTransform;
     private Vector3 startingHolePosition;
-    private AudioSource audioSource;
+    private bool wasSacked;
 
-    private const float sackTargetOffsetY = -0.25f;
+    private const float k_SackTargetOffsetY = -0.25f;
 
     private void Awake()
     {
@@ -43,13 +41,12 @@ public class Vole : NetworkBehaviour
             navMeshAgent.enabled = false;
         }
 
-        returnToHoleTime = Time.time + Random.Range(maxLifetimeRange.x, maxLifetimeRange.y);
         startingHolePosition = transform.position;
-        nextMoveTime = Time.time + Random.Range(updateIntervalRange.x, updateIntervalRange.y);
-    }
+        NetworkObject.TrySetParent(GameManager.Instance.SharedSpaceManager.SharedArOriginObject);
+        transform.position = startingHolePosition;
 
-    private void Start()
-    {
+        returnToHoleTime = Time.time + Random.Range(maxLifetimeRange.x, maxLifetimeRange.y);
+        nextMoveTime = Time.time + Random.Range(updateIntervalRange.x, updateIntervalRange.y);
     }
 
     private void Update()
@@ -59,7 +56,7 @@ public class Vole : NetworkBehaviour
         if(wasSacked && sackTargetTransform)
         {
             lerpTime += Time.deltaTime;
-            Vector3 targetPos = sackTargetTransform.position + Vector3.down * sackTargetOffsetY;
+            Vector3 targetPos = sackTargetTransform.position + Vector3.down * k_SackTargetOffsetY;
             float clampedTime = Mathf.Clamp01(lerpTime / sackAnimationTime);
             transform.position = Vector3.Lerp(transform.position, targetPos, clampedTime);
             if(clampedTime >= 1)
@@ -77,6 +74,7 @@ public class Vole : NetworkBehaviour
                 // Arrived at home
                 RemoveFromGame();
             }
+
             return;
         }
 

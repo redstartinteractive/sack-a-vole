@@ -37,9 +37,9 @@ public class LobbyController : NetworkBehaviour
     public event Action OnAllPlayersReady;
 
     private Dictionary<ulong, bool> clientsInLobby;
+    private bool hasAllPlayersInLobby;
     private string lobbyCode;
     private bool startAsHost;
-    private bool hasAllPlayersInLobby;
 
     private const float k_MinimumMeshArea = 2f;
 

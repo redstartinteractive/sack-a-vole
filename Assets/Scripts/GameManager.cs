@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Niantic.Lightship.AR.NavigationMesh;
+using Niantic.Lightship.SharedAR.Colocalization;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -8,14 +9,16 @@ public class GameManager : Singleton<GameManager>
 {
     [SerializeField] private LobbyController lobbyController;
     [SerializeField] private RoundManager roundManager;
+    [SerializeField] private SharedSpaceManager sharedSpaceManager;
     [Space]
     [SerializeField] private Button debugLogToggleButton;
     [SerializeField] private TextMeshProUGUI debugLogText;
     [SerializeField] private CanvasGroup debugLogCanvasGroup;
+    public readonly Dictionary<ulong, PlayerPositionTracking> PlayerPositions = new();
 
     public LightshipNavMeshManager NavMeshManager { get; private set; }
     public RoundManager RoundManager => roundManager;
-    public readonly Dictionary<ulong, PlayerPositionTracking> PlayerPositions = new();
+    public SharedSpaceManager SharedSpaceManager => sharedSpaceManager;
 
     protected override void Initialize()
     {
