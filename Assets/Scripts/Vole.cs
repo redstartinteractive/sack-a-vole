@@ -22,14 +22,18 @@ public class Vole : NetworkBehaviour
     private Transform sackTargetTransform;
     private Vector3 startingHolePosition;
     private bool wasSacked;
+    private Animator animator;
+    private Vector2 lastPos;
 
+    private static readonly int IsRunning = Animator.StringToHash("IsRunning");
+    private static readonly int Sack = Animator.StringToHash("IsSacked");
     private const float k_SackTargetOffsetY = -0.25f;
 
     private void Awake()
     {
         navMeshAgent = GetComponent<LightshipNavMeshAgent>();
         audioSource = GetComponent<AudioSource>();
-        navMeshManager = GameManager.Instance.NavMeshManager;
+        animator = GetComponentInChildren<Animator>();
     }
 
     public override void OnNetworkSpawn()
@@ -41,9 +45,10 @@ public class Vole : NetworkBehaviour
             navMeshAgent.enabled = false;
         }
 
+        navMeshManager = GameManager.Instance.NavMeshManager;
+
         startingHolePosition = transform.position;
-        NetworkObject.TrySetParent(GameManager.Instance.SharedSpaceManager.SharedArOriginObject);
-        transform.position = startingHolePosition;
+        bool canSetParent = NetworkObject.TrySetParent(GameManager.Instance.SharedSpaceManager.SharedArOriginObject);
 
         returnToHoleTime = Time.time + Random.Range(maxLifetimeRange.x, maxLifetimeRange.y);
         nextMoveTime = Time.time + Random.Range(updateIntervalRange.x, updateIntervalRange.y);
@@ -51,8 +56,24 @@ public class Vole : NetworkBehaviour
 
     private void Update()
     {
+        UpdateAnimations();
+
         if(!IsServer) return;
 
+        UpdateMovement();
+    }
+
+    private void UpdateAnimations()
+    {
+        animator.SetBool(Sack, wasSacked);
+        if(wasSacked) return;
+
+        float dist = ((Vector2)gameObject.transform.position - lastPos).magnitude;
+        animator.SetBool(IsRunning, dist > 0.01f);
+    }
+
+    private void UpdateMovement()
+    {
         if(wasSacked && sackTargetTransform)
         {
             lerpTime += Time.deltaTime;

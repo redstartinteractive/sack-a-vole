@@ -88,23 +88,23 @@ public class RoundManager : NetworkBehaviour
         Vector3 gameOrigin = GameManager.Instance.SharedSpaceManager.SharedArOriginObject.transform.position;
         for(int i = 0; i < numHolesToSpawn; i++)
         {
-            navMeshManager.LightshipNavMesh.FindRandomPosition(gameOrigin, spawnRange,
-                out Vector3 randomPosition);
-
-            SpawnHoleClientRpc(randomPosition, (uint)i);
+            SpawnHoleServer(gameOrigin, i);
         }
 
         // Let clients know its time to start
         SendStartGameClientRpc(NetworkManager.Singleton.ConnectedClientsIds.ToArray());
     }
 
-    [ClientRpc]
-    private void SpawnHoleClientRpc(Vector3 spawnPosition, uint id)
+    private void SpawnHoleServer(Vector3 gameOrigin, int index)
     {
-        navMeshManager.LightshipNavMesh.FindNearestFreePosition(spawnPosition, out Vector3 positionOnNavMesh);
+        navMeshManager.LightshipNavMesh.FindRandomPosition(gameOrigin, spawnRange,
+            out Vector3 randomPosition);
+
+        navMeshManager.LightshipNavMesh.FindNearestFreePosition(randomPosition, out Vector3 positionOnNavMesh);
         VoleHole hole = Instantiate(voleHolePrefab, positionOnNavMesh, Quaternion.identity);
+        hole.NetworkObject.Spawn();
         spawnedHoles.Add(hole);
-        hole.PlaySpawnAnimation(positionOnNavMesh, id * (3f / numHolesToSpawn));
+        hole.PlaySpawnAnimation(positionOnNavMesh, index * (3f / numHolesToSpawn));
     }
 
     [ClientRpc]
@@ -184,21 +184,20 @@ public class RoundManager : NetworkBehaviour
             vole.NetworkObject.Despawn();
         }
 
+        for(int index = 0; index < spawnedHoles.Count; index++)
+        {
+            VoleHole hole = spawnedHoles[index];
+            hole.PlayDespawnAnimation(index * 0.25f);
+        }
+
         spawnedVoles.Clear();
+        spawnedHoles.Clear();
         NotifyEndRoundClientRpc();
     }
 
     [ClientRpc]
     private void NotifyEndRoundClientRpc()
     {
-        for(int index = 0; index < spawnedHoles.Count; index++)
-        {
-            VoleHole hole = spawnedHoles[index];
-            hole.RemoveFromGame(index * 0.25f);
-        }
-
-        spawnedVoles.Clear();
-        spawnedHoles.Clear();
         isRoundActive = false;
         timerText.gameObject.SetActive(false);
 
