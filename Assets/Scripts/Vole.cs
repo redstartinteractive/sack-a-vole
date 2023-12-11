@@ -48,7 +48,8 @@ public class Vole : NetworkBehaviour
         navMeshManager = GameManager.Instance.NavMeshManager;
 
         startingHolePosition = transform.position;
-        bool canSetParent = NetworkObject.TrySetParent(GameManager.Instance.SharedSpaceManager.SharedArOriginObject);
+        lastPos = startingHolePosition;
+        NetworkObject.TrySetParent(GameManager.Instance.SharedSpaceManager.SharedArOriginObject);
 
         returnToHoleTime = Time.time + Random.Range(maxLifetimeRange.x, maxLifetimeRange.y);
         nextMoveTime = Time.time + Random.Range(updateIntervalRange.x, updateIntervalRange.y);
@@ -68,8 +69,12 @@ public class Vole : NetworkBehaviour
         animator.SetBool(Sack, wasSacked);
         if(wasSacked) return;
 
-        float dist = ((Vector2)gameObject.transform.position - lastPos).magnitude;
-        animator.SetBool(IsRunning, dist > 0.01f);
+        Vector2 pos = new(gameObject.transform.position.x, gameObject.transform.position.z);
+        float dist = (pos - lastPos).magnitude;
+        lastPos = pos;
+
+        float speed = dist / Time.deltaTime;
+        animator.SetBool(IsRunning, speed > 0);
     }
 
     private void UpdateMovement()

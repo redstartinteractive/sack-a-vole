@@ -90,7 +90,7 @@ MonoBehaviour:
   moveMaxDistance: 1
   updateIntervalRange: {x: 1, y: 2}
   maxLifetimeRange: {x: 3, y: 5}
-  sackAnimationTime: 1
+  sackAnimationTime: 1.5
 --- !u!136 &6203475150451252977
 CapsuleCollider:
   m_ObjectHideFlags: 0
