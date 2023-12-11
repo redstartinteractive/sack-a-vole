@@ -20,6 +20,7 @@ public class PlayerPositionTracking : NetworkTransform
             }
         }
 
+        GameManager.Instance.PlayerPositions.Add(OwnerClientId, this);
         base.OnNetworkSpawn();
     }
 

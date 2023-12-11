@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Niantic.Lightship.AR.NavigationMesh;
 using TMPro;
 using UnityEngine;
@@ -14,6 +15,7 @@ public class GameManager : Singleton<GameManager>
 
     public LightshipNavMeshManager NavMeshManager { get; private set; }
     public RoundManager RoundManager => roundManager;
+    public readonly Dictionary<ulong, PlayerPositionTracking> PlayerPositions = new();
 
     protected override void Initialize()
     {
@@ -34,7 +36,7 @@ public class GameManager : Singleton<GameManager>
 
     private void OnAllPlayersReady()
     {
-        roundManager.StartNewRound();
+        roundManager.ShowNewRoundUI();
     }
 
     private void OnDebugLogClicked()

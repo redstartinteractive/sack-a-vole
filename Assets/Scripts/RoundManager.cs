@@ -1,35 +1,51 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Niantic.Lightship.AR.NavigationMesh;
+using Niantic.Lightship.SharedAR.Colocalization;
 using PrimeTween;
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
+using Random = UnityEngine.Random;
 
 public class RoundManager : NetworkBehaviour
 {
     [SerializeField] private Vole volePrefab;
+    [SerializeField] private VoleHole voleHolePrefab;
+    [Space]
+    [SerializeField] private int numHolesToSpawn = 5;
+    [SerializeField] private float spawnRange = 3f;
     [SerializeField] private float timeBetweenSpawns = 1f;
     [SerializeField] private float roundTime = 30f;
     [Space]
     [SerializeField] private Button startGameButton;
     [SerializeField] private CanvasGroup startGameCanvasGroup;
     [SerializeField] private PlayerListController playerList;
-
+    [Space]
     [SerializeField] private TextMeshProUGUI timerText;
     [SerializeField] private TextMeshProUGUI countdownText;
+    [SerializeField] private SharedSpaceManager sharedSpaceManager;
+    [Header("Audio")]
+    [SerializeField] private AudioClip startRaceLowSound;
+    [SerializeField] private AudioClip startRaceHighSound;
+    [SerializeField] private AudioClip successSound;
+    [SerializeField] private AudioClip failureSound;
 
+    private AudioSource audioSource;
     private bool isRoundActive;
     private float nextSpawnTime;
     private float roundStartTime;
 
     private LightshipNavMeshManager navMeshManager;
     private readonly Dictionary<ulong, int> playerScores = new();
+    private readonly Dictionary<uint, VoleHole> activeSpawnedHoles = new();
     private readonly List<Vole> activeSpawnedVoles = new();
 
     private void Start()
     {
+        audioSource = GetComponent<AudioSource>();
         navMeshManager = GameManager.Instance.NavMeshManager;
         startGameCanvasGroup.gameObject.SetActive(false);
         timerText.gameObject.SetActive(false);
@@ -37,7 +53,7 @@ public class RoundManager : NetworkBehaviour
         startGameButton.onClick.AddListener(OnClickStartGame);
     }
 
-    public void StartNewRound()
+    public void ShowNewRoundUI()
     {
         countdownText.gameObject.SetActive(false);
         startGameCanvasGroup.gameObject.SetActive(true);
@@ -51,7 +67,27 @@ public class RoundManager : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     private void StartGameServerRpc()
     {
+        // Setup playing field
+        Vector3 gameOrigin = sharedSpaceManager.SharedArOriginObject.transform.position;
+        for(int i = 0; i < numHolesToSpawn; i++)
+        {
+            navMeshManager.LightshipNavMesh.FindRandomPosition(gameOrigin, spawnRange,
+                out Vector3 randomPosition);
+
+            SpawnHoleClientRpc(randomPosition, (uint)i);
+        }
+
+        // Let clients know its time to start
         SendStartGameClientRpc(NetworkManager.Singleton.ConnectedClientsIds.ToArray());
+    }
+
+    [ClientRpc]
+    private void SpawnHoleClientRpc(Vector3 spawnPosition, uint id)
+    {
+        navMeshManager.LightshipNavMesh.FindNearestFreePosition(spawnPosition, out Vector3 positionOnNavMesh);
+        VoleHole hole = Instantiate(voleHolePrefab, positionOnNavMesh, Quaternion.identity);
+        activeSpawnedHoles.Add(id, hole);
+        hole.PlaySpawnAnimation(positionOnNavMesh, id * (3f / numHolesToSpawn));
     }
 
     [ClientRpc]
@@ -71,15 +107,30 @@ public class RoundManager : NetworkBehaviour
         countdownText.alpha = 1;
 
         Sequence.Create()
-            .ChainCallback(() => countdownText.SetText("3"))
-            .Group(Tween.PunchScale(countdownText.transform, Vector3.one, 1f, 1f))
-            .ChainCallback(() => countdownText.SetText("2"))
-            .Group(Tween.PunchScale(countdownText.transform, Vector3.one, 1f, 1f))
-            .ChainCallback(() => countdownText.SetText("1"))
-            .Group(Tween.PunchScale(countdownText.transform, Vector3.one, 1f, 1f))
+            .ChainCallback(() =>
+            {
+                countdownText.SetText("3");
+                audioSource.clip = startRaceLowSound;
+                audioSource.Play();
+            })
+            .Chain(Tween.PunchScale(countdownText.transform, Vector3.one, 1f, 1f))
+            .ChainCallback(() =>
+            {
+                countdownText.SetText("2");
+                audioSource.Play();
+            })
+            .Chain(Tween.PunchScale(countdownText.transform, Vector3.one, 1f, 1f))
+            .ChainCallback(() =>
+            {
+                countdownText.SetText("1");
+                audioSource.Play();
+            })
+            .Chain(Tween.PunchScale(countdownText.transform, Vector3.one, 1f, 1f))
             .ChainCallback(() =>
             {
                 countdownText.SetText("GO!");
+                audioSource.clip = startRaceHighSound;
+                audioSource.Play();
                 roundStartTime = Time.time;
                 nextSpawnTime = Time.time;
                 isRoundActive = true;
@@ -96,7 +147,7 @@ public class RoundManager : NetworkBehaviour
         int secondsRemaining = Mathf.FloorToInt(roundTime - (Time.time - roundStartTime));
         timerText.text = secondsRemaining.ToString();
 
-        if(!IsHost) return;
+        if(!IsServer) return;
 
         if(secondsRemaining <= 0)
         {
@@ -106,17 +157,16 @@ public class RoundManager : NetworkBehaviour
 
         if(Time.time < nextSpawnTime) return;
 
-        SpawnVole();
+        SpawnVoleServer();
+        nextSpawnTime = Time.time + timeBetweenSpawns;
     }
 
-    private void SpawnVole()
+    private void SpawnVoleServer()
     {
-        navMeshManager.LightshipNavMesh.FindRandomPosition(out Vector3 randomPosition);
-        Vole spawnedVole = Instantiate(volePrefab, randomPosition, Quaternion.identity);
-        spawnedVole.SetDestination(randomPosition);
+        KeyValuePair<uint, VoleHole> startingHole = activeSpawnedHoles.ElementAt(Random.Range(0, activeSpawnedHoles.Count - 1));
+        Vole spawnedVole = Instantiate(volePrefab, startingHole.Value.transform.position, Quaternion.identity);
         spawnedVole.NetworkObject.Spawn();
         activeSpawnedVoles.Add(spawnedVole);
-        nextSpawnTime = Time.time + timeBetweenSpawns;
     }
 
     public void RemoveVole(Vole vole)
@@ -135,7 +185,7 @@ public class RoundManager : NetworkBehaviour
     {
         foreach(Vole vole in activeSpawnedVoles)
         {
-            vole.RemoveFromGame();
+            vole.NetworkObject.Despawn();
         }
 
         activeSpawnedVoles.Clear();
@@ -145,6 +195,10 @@ public class RoundManager : NetworkBehaviour
     [ClientRpc]
     private void NotifyEndRoundClientRpc()
     {
+        foreach(KeyValuePair<uint, VoleHole> hole in activeSpawnedHoles) hole.Value.RemoveFromGame(hole.Key * 0.5f);
+
+        activeSpawnedVoles.Clear();
+        activeSpawnedHoles.Clear();
         isRoundActive = false;
         timerText.gameObject.SetActive(false);
 
@@ -162,15 +216,15 @@ public class RoundManager : NetworkBehaviour
         if(!playerScores.TryGetValue(NetworkManager.Singleton.LocalClientId, out int localPlayerScore))
         {
             // Error, we cannot get our own score?
-            StartNewRound();
+            ShowNewRoundUI();
             return;
         }
 
         bool hasTieWithAnotherPlayer = false;
         bool isScoreHighest = true;
 
-        foreach(KeyValuePair<ulong, int> scoreEntry in playerScores
-                    .Where(scoreEntry => scoreEntry.Key != NetworkManager.Singleton.LocalClientId))
+        IEnumerable<KeyValuePair<ulong, int>> otherPlayers = playerScores.Where(scoreEntry => scoreEntry.Key != NetworkManager.Singleton.LocalClientId);
+        foreach(KeyValuePair<ulong, int> scoreEntry in otherPlayers)
         {
             if(scoreEntry.Value > localPlayerScore)
             {
@@ -184,18 +238,24 @@ public class RoundManager : NetworkBehaviour
         if(isScoreHighest && hasTieWithAnotherPlayer)
         {
             countdownText.SetText("Tie!");
+            audioSource.clip = successSound;
+            audioSource.Play();
         } else if(isScoreHighest)
         {
             countdownText.SetText("Winner!");
+            audioSource.clip = successSound;
+            audioSource.Play();
         } else
         {
             countdownText.SetText("Loser!");
+            audioSource.clip = failureSound;
+            audioSource.Play();
         }
 
         countdownText.gameObject.SetActive(true);
         countdownText.alpha = 1;
         Tween.PunchScale(countdownText.transform, Vector3.one, 1f, 1f, true, Ease.Default, 0, 3)
-            .Chain(Tween.Alpha(countdownText, 0, 2f, Ease.Default, 1, CycleMode.Restart, 3f))
-            .ChainCallback(StartNewRound);
+            .Chain(Tween.Alpha(countdownText, 0, 1f, Ease.Default, 1, CycleMode.Restart, 3f))
+            .ChainCallback(ShowNewRoundUI);
     }
 }

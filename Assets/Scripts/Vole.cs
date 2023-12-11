@@ -1,5 +1,7 @@
+using System;
 using UnityEngine;
 using Niantic.Lightship.AR.NavigationMesh;
+using PrimeTween;
 using Unity.Netcode;
 using Random = UnityEngine.Random;
 
@@ -7,45 +9,88 @@ public class Vole : NetworkBehaviour
 {
     [SerializeField] private int scoreValue = 1;
     [SerializeField] private float moveMaxDistance = 0.5f;
-    [SerializeField] private Vector2 updateIntervalRange = new(2, 3);
+    [SerializeField] private Vector2 updateIntervalRange = new(0.5f, 2);
+    [SerializeField] private Vector2 maxLifetimeRange = new(2, 3);
+    [SerializeField] private float sackAnimationTime = 1f;
 
     private LightshipNavMeshAgent navMeshAgent;
     private LightshipNavMeshManager navMeshManager;
 
     private float nextMoveTime;
     private bool wasSacked;
+    private bool isGoingHome;
+    private Transform sackTargetTransform;
+    private float lerpTime;
+    private float returnToHoleTime;
+    private Vector3 startingHolePosition;
+    private AudioSource audioSource;
+
+    private const float sackTargetOffsetY = -0.25f;
 
     private void Awake()
     {
         navMeshAgent = GetComponent<LightshipNavMeshAgent>();
-    }
-
-    private void Start()
-    {
+        audioSource = GetComponent<AudioSource>();
         navMeshManager = GameManager.Instance.NavMeshManager;
     }
 
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
-        if(!IsHost)
+        if(!IsServer)
         {
+            navMeshAgent.StopMoving();
             navMeshAgent.enabled = false;
         }
+
+        returnToHoleTime = Time.time + Random.Range(maxLifetimeRange.x, maxLifetimeRange.y);
+        startingHolePosition = transform.position;
+        nextMoveTime = Time.time + Random.Range(updateIntervalRange.x, updateIntervalRange.y);
+    }
+
+    private void Start()
+    {
     }
 
     private void Update()
     {
-        if(!IsHost || wasSacked) return;
-        if(Time.time < nextMoveTime) return;
+        if(!IsServer) return;
 
-        SetRandomDestination();
-    }
+        if(wasSacked && sackTargetTransform)
+        {
+            lerpTime += Time.deltaTime;
+            Vector3 targetPos = sackTargetTransform.position + Vector3.down * sackTargetOffsetY;
+            float clampedTime = Mathf.Clamp01(lerpTime / sackAnimationTime);
+            transform.position = Vector3.Lerp(transform.position, targetPos, clampedTime);
+            if(clampedTime >= 1)
+            {
+                RemoveFromGame();
+            }
 
-    public void SetDestination(Vector3 point)
-    {
-        navMeshAgent.SetDestination(point);
-        nextMoveTime = Time.time + Random.Range(updateIntervalRange.x, updateIntervalRange.y);
+            return;
+        }
+
+        if(isGoingHome)
+        {
+            if(navMeshAgent.State == LightshipNavMeshAgent.AgentNavigationState.Idle)
+            {
+                // Arrived at home
+                RemoveFromGame();
+            }
+            return;
+        }
+
+        if(!wasSacked && Time.time >= returnToHoleTime)
+        {
+            navMeshAgent.SetDestination(startingHolePosition);
+            isGoingHome = true;
+        }
+
+        if(!wasSacked && Time.time >= nextMoveTime)
+        {
+            SetRandomDestination();
+            nextMoveTime = Time.time + Random.Range(updateIntervalRange.x, updateIntervalRange.y);
+        }
     }
 
     private void SetRandomDestination()
@@ -59,23 +104,39 @@ public class Vole : NetworkBehaviour
             out Vector3 randomPosition);
 
         navMeshAgent.SetDestination(randomPosition);
-        nextMoveTime = Time.time + Random.Range(updateIntervalRange.x, updateIntervalRange.y);
     }
 
     [ServerRpc(RequireOwnership = false)]
     public void SackServerRpc(ulong clientId)
     {
         if(wasSacked) return;
-        gameObject.SetActive(false);
-        GameManager.Instance.RoundManager.GivePointsClientRpc(clientId, scoreValue);
-        GameManager.Instance.RoundManager.RemoveVole(this);
+
         wasSacked = true;
-        NetworkObject.Despawn();
+        navMeshAgent.StopMoving();
+        navMeshAgent.enabled = false;
+        // Give points immediately, on the server only
+        GameManager.Instance.RoundManager.GivePointsClientRpc(clientId, scoreValue);
+
+        // Start sack animation
+        lerpTime = 0;
+        PlayerPositionTracking playerPos = GameManager.Instance.PlayerPositions[clientId];
+        sackTargetTransform = playerPos.transform;
+
+        // Remove from gameplay, but don't despawn yet
+        GameManager.Instance.RoundManager.RemoveVole(this);
+
+        PlaySackSoundClientRpc();
     }
 
-    public void RemoveFromGame()
+    [ClientRpc]
+    private void PlaySackSoundClientRpc()
     {
-        // TODO spawn dust particles on all clients
+        audioSource.Play();
+    }
+
+    private void RemoveFromGame()
+    {
+        GameManager.Instance.RoundManager.RemoveVole(this);
         NetworkObject.Despawn();
     }
 }
