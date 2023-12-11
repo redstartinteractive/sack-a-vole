@@ -1,8 +1,9 @@
 # Sack a Vole
-A multiplayer, shared AR game in which players must quickly tap on voles to collect them in their sack. The player with the most voles at the end of 30 seconds is the winner! 
+A multiplayer, shared AR game in which players must quickly tap on voles to collect them in their sacks. The player with the most voles at the end of 30 seconds is the winner! 
 This project utilizes the [Lightship ARDK](https://lightship.dev/docs/ardk/) and Unity's Netcode for GameObjects to demonstrates a number of features:
 
 ### Meshing
+Each player must scan the room 
 ### Navigation Mesh
 ### Shared AR
 ### Image based colocalization
