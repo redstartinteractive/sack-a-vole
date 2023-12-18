@@ -5,6 +5,37 @@ the most voles at the end of the round wins!
 
 A multiplayer, shared AR game that utilizes the [Lightship ARDK](https://lightship.dev/docs/ardk/) and Unity's Netcode for GameObjects to demonstrates a number of features below.
 
+## Build and Run
+
+### Add your Lightship API key
+
+In order to run the project you'll need to add your LightShip API key.
+
+- Sign up at [the lightship dev website] (https://lightship.dev/)
+- Create a new project
+- Copy the generated API key
+- In unity, select the menu `Lightship -> Settings` and paste your key into the `API Key` field
+
+### Sign and build for iOS
+
+You'll need to add a signing identity if you want to build for iOS.
+This can be done in Unity's project settings, or within Xcode.
+
+- Build the game from unity to an Xcode project
+- Build the game in Xcode to a test device
+
+### Print the Target Image, for colocalization
+
+While playing the game, you'll need to scan a Target Image that is displayed in the real world.
+
+- In Unity, in the project tab, navigate to `Assets -> Textures`
+- Open and print the [ImageTrackingAnchor.png](Assets/Textures/ImageTrackingAnchor.png) file
+
+### Troubleshooting Notes
+
+- If you encounter an error building in Xcode (see [this forum post](https://forum.unity.com/threads/project-wont-build-using-xode15-release-candidate.1491761/page-2), you may need to add `-ld64` to the framework `UnityFramework` in Xcode
+  under `Build Settings -> Other linker flags`
+
 ## How to Play
 
 ### Setup a lobby
@@ -46,34 +77,9 @@ Voles are controlled by the host and use Shared Space Origin to keep everything 
 
 ### Image based colocalization
 
-A target image is included in the project that is used to colocalize multiple players in AR space, and within the real world.
+A [target image is included in the project](Assets/Textures/ImageTrackingAnchor.png) that is used to colocalize multiple players in AR space, and within the real world.
 As part of joining a lobby, players will need to scan for this image and set a shared origin.
 
 ### Pin to join rooms
 
 When a host creates a new game, a pin is generated randomly. Other players can use this number to join the specific lobby/room.
-
-## Build and Run
-
-### Add your Lightship API key
-
-In order to run the project you'll need to add your LightShip API key.
-
-- Sign up at [the lightship dev website] (https://lightship.dev/),
-- Create a new project
-- Copy the generated API key
-- In unity, select the menu `Lightship -> Settings` and paste your key into the `API Key` field
--
-
-### Sign and build for iOS
-
-You'll need to add a signing identity if you want to build for iOS.
-This can be done in Unity's project settings, or within Xcode.
-
-- Build the game from unity to an Xcode project
-- Build the game in Xcode to a test device
-
-## Technical Notes
-
-- If you encounter an error building in Xcode see [this forum post](https://forum.unity.com/threads/project-wont-build-using-xode15-release-candidate.1491761/page-2)
-- You may need to add `-ld64` to the framework `UnityFramework` under `Build Settings -> Other linker flags`
