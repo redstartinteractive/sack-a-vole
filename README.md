@@ -5,6 +5,15 @@ the most voles at the end of the round wins!
 
 A multiplayer, shared AR game that utilizes the [Lightship ARDK](https://lightship.dev/docs/ardk/) and Unity's Netcode for GameObjects to demonstrates a number of features below.
 
+## Clone the Repository with Git LFS
+
+Before running the project, it is necessary to install Git LFS and pull the project assets from the repository.
+
+- [Download Git LFS from the website](https://git-lfs.com/)
+  - Alternatively, you can install it on macOS using Homebrew: `brew install git-lfs` or MacPorts: `port install git-lfs`
+- Run `git lfs install` in your Git command line to set up Git LFS for your user account. You only need to run this once per user account.
+- Clone the repository as usual, and it should pull in the Git LFS assets.
+- If you had previously cloned the repository, you can run `git lfs pull` to pull in the Git LFS assets.
 ## Build and Run
 
 ### Add your Lightship API key
