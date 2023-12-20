@@ -75,6 +75,7 @@ public class LobbyController : NetworkBehaviour
 
     private void StartNewRoom()
     {
+        Debug.Log("Start New Room");
         // generate a new room name 3 digit number
         int code = (int)Random.Range(0.0f, 999.0f);
         SetLobbyCode(code.ToString("D3"));
@@ -102,10 +103,12 @@ public class LobbyController : NetworkBehaviour
         lobbyCode = code;
         lobbyInfoText.SetText($"Lobby PIN: {lobbyCode}");
         lobbyInfoGroup.gameObject.SetActive(true);
+        Debug.Log("Set Lobby Code " + lobbyCode);
     }
 
     private void StartNetworkSharedSpace()
     {
+        Debug.Log("Start Network Shared Space " + lobbyCode + "SackAVole");
         ISharedSpaceTrackingOptions imageTrackingOptions =
             ISharedSpaceTrackingOptions.CreateImageTrackingOptions(targetImage, targetImageSize);
 
@@ -128,6 +131,7 @@ public class LobbyController : NetworkBehaviour
 
     private void OnColocalizationTrackingStateChanged(SharedSpaceManager.SharedSpaceManagerStateChangeEventArgs args)
     {
+        Debug.Log("Colocalization Tracking State Changed: isTracking: " + args.Tracking);
         if(!args.Tracking) return;
         AnimateCanvasGroup(colocalizeGroup, false);
         Instantiate(sharedOriginPrefab, sharedSpaceManager.SharedArOriginObject.transform, false);
@@ -137,6 +141,7 @@ public class LobbyController : NetworkBehaviour
 
     private void ScanEnvironmentForMesh()
     {
+        Debug.Log("Start Scan Environment For Mesh");
         AnimateCanvasGroup(scanCanvasGroup, true);
         meshManager.gameObject.SetActive(true);
         GameManager.Instance.NavMeshManager.enabled = true;
@@ -147,12 +152,14 @@ public class LobbyController : NetworkBehaviour
         {
             while(GameManager.Instance.NavMeshManager.LightshipNavMesh == null)
             {
+                Debug.Log("Lightship Nav Mesh is null, waiting...");
                 yield return waitForMeshArea;
             }
 
             while(GameManager.Instance.NavMeshManager.LightshipNavMesh.Area < k_MinimumMeshArea)
             {
                 float percentScanned = GameManager.Instance.NavMeshManager.LightshipNavMesh.Area / k_MinimumMeshArea;
+                Debug.Log($"Nav Mesh is not large enough ({percentScanned}), waiting...");
                 scanPercentSlider.value = Mathf.Clamp01(percentScanned);
                 yield return waitForMeshArea;
             }
@@ -165,6 +172,7 @@ public class LobbyController : NetworkBehaviour
 
     private void SetPlayerReady()
     {
+        Debug.Log("Player is ready!");
         clientsInLobby[NetworkManager.Singleton.LocalClientId] = true;
 
         if(IsServer)
@@ -246,6 +254,7 @@ public class LobbyController : NetworkBehaviour
     [ClientRpc]
     private void SendAllPlayersReadyClientRpc()
     {
+        Debug.Log("All players in lobby are ready!");
         OnAllPlayersReady?.Invoke();
     }
 
