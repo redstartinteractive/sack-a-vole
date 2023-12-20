@@ -40,8 +40,9 @@ public class LobbyController : NetworkBehaviour
     private bool hasAllPlayersInLobby;
     private string lobbyCode;
     private bool startAsHost;
+    private readonly WaitForSeconds waitForMeshArea = new(.25f);
 
-    private const float k_MinimumMeshArea = 2f;
+    private const float k_MinimumMeshArea = 1.75f;
 
     private void Awake()
     {
@@ -109,7 +110,7 @@ public class LobbyController : NetworkBehaviour
             ISharedSpaceTrackingOptions.CreateImageTrackingOptions(targetImage, targetImageSize);
 
         ISharedSpaceRoomOptions roomOptions =
-            ISharedSpaceRoomOptions.CreateLightshipRoomOptions(lobbyCode, 4, "Sack A Vole Room");
+            ISharedSpaceRoomOptions.CreateLightshipRoomOptions(lobbyCode + "SackAVole", 4, "Sack A Vole Room");
 
         sharedSpaceManager.sharedSpaceManagerStateChanged += OnColocalizationTrackingStateChanged;
         sharedSpaceManager.StartSharedSpace(imageTrackingOptions, roomOptions);
@@ -128,7 +129,6 @@ public class LobbyController : NetworkBehaviour
     private void OnColocalizationTrackingStateChanged(SharedSpaceManager.SharedSpaceManagerStateChangeEventArgs args)
     {
         if(!args.Tracking) return;
-
         AnimateCanvasGroup(colocalizeGroup, false);
         Instantiate(sharedOriginPrefab, sharedSpaceManager.SharedArOriginObject.transform, false);
         ScanEnvironmentForMesh();
@@ -147,14 +147,14 @@ public class LobbyController : NetworkBehaviour
         {
             while(GameManager.Instance.NavMeshManager.LightshipNavMesh == null)
             {
-                yield return new WaitForSeconds(.25f);
+                yield return waitForMeshArea;
             }
 
             while(GameManager.Instance.NavMeshManager.LightshipNavMesh.Area < k_MinimumMeshArea)
             {
                 float percentScanned = GameManager.Instance.NavMeshManager.LightshipNavMesh.Area / k_MinimumMeshArea;
                 scanPercentSlider.value = Mathf.Clamp01(percentScanned);
-                yield return new WaitForSeconds(.25f);
+                yield return waitForMeshArea;
             }
 
             scanPercentSlider.value = 1;
@@ -185,11 +185,11 @@ public class LobbyController : NetworkBehaviour
     }
 
     [ServerRpc(RequireOwnership = false)]
-    private void OnClientIsReadyServerRpc(ulong clientid)
+    private void OnClientIsReadyServerRpc(ulong clientId)
     {
-        if(!clientsInLobby.ContainsKey(clientid)) return;
+        if(!clientsInLobby.ContainsKey(clientId)) return;
 
-        clientsInLobby[clientid] = true;
+        clientsInLobby[clientId] = true;
         UpdateAndCheckPlayersInLobby();
     }
 
