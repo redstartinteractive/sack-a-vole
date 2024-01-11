@@ -64,7 +64,7 @@ public class RoundManager : NetworkBehaviour
             return;
         }
 
-        if(Time.time < nextSpawnTime) return;
+        if(Time.time < nextSpawnTime || spawnedVoles.Count >= 10) return;
 
         SpawnVoleServer();
         nextSpawnTime = Time.time + timeBetweenSpawns;
